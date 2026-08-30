@@ -1,0 +1,3 @@
+com\enterprise\tests\ValidLoginTest.class
+com\enterprise\tests\BaseTest.class
+com\enterprise\tests\InvalidLoginTest.class

@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(move:*)",
+      "Shell(mvn:*)",
+      "Shell(java:*)",
+      "Shell(where java; dir \"C:\\Program Files\\Apache\" 2>nul; dir \"%USERPROFILE%\\.m2\" 2>nul; where mvnw 2>nul)",
+      "Shell(where:*)",
+      "Shell(if:*)",
+      "Shell(dir:*)",
+      "Shell(else:*)",
+      "Shell(findstr:*)",
+      "Shell(where javac 2>nul & set JAVA_HOME & set MAVEN_HOME & dir /s /b \"C:\\Program Files\\Java\" 2>nul & dir \"C:\\Program Files\\Microsoft VS Code\" 2>nul | findstr /i java)",
+      "Shell(where mvn 2>nul & where mvn.cmd 2>nul & dir /s /b \"C:\\\" 2>nul | findstr /i \"apache-maven maven\\bin\\mvn.cmd mvn.cmd\" 2>nul | findstr /v /i \"git vscode\")",
+      "Shell(where choco 2>nul & where scoop 2>nul & where winget 2>nul & where gradle 2>nul & echo --- & echo %PATH%)",
+      "Shell(mvnw.cmd:*)",
+      "Shell(cmd:*)",
+      "Shell(curl -s -L \"https://login.salesforce.com/?locale=in\" -o \"%COMMANDCODE_SCRATCHPAD%\\sf_login.html\" -w \"HTTP %{http_code}, size %{size_download}\\n\")",
+      "powershell"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}
