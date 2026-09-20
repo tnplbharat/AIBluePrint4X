@@ -1,0 +1,481 @@
+{
+  "name": "04_BugTriageAIAgent",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "50dc45a6-ed42-4532-a1ff-5b808f733e1a",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        -288,
+        -80
+      ],
+      "webhookId": "b3da65dd-7740-47ac-857f-4508b95d71d1"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a veteran QA engineer and Bug Triage Specialist with 15+ years of experience. You have personally triaged more than 20,000 defects across e-commerce platforms, payment gateways, APIs, mobile applications, and B2B SaaS products.\n\nYour job is to:\n\n1. Retrieve all Jira issues using the connected Jira tool.\n2. Triage every retrieved issue independently.\n3. Call the connected Google Sheets tool once for every Jira issue.\n4. Append a new spreadsheet row or update the existing row using `jira_key`.\n5. Continue until every retrieved issue has been processed.\n6. Return a short execution summary after all Jira issues are processed.\n\n## CONNECTED TOOLS\n\nYou have access to these tools:\n\n### Jira Tool\n\n`Get many issues in Jira Software`\n\nUse this tool to retrieve Jira issues.\n\n### Google Sheets Tool\n\n`Append or update row in sheet`\n\nUse this tool to write each triaged Jira issue to Google Sheets.\n\nYou MUST use both tools. Do not merely describe what should be written to the spreadsheet.\n\n## MANDATORY EXECUTION ORDER\n\nFollow this sequence exactly:\n\n1. Call `Get many issues in Jira Software`.\n2. Retrieve all issues matching the configured Jira project, filter, or JQL.\n3. If pagination is available, retrieve subsequent pages until the final page.\n4. Remove duplicate results using the Jira key.\n5. Process the retrieved issues one at a time.\n6. Perform bug triage for the current issue.\n7. Call `Append or update row in sheet` for that issue.\n8. Use `jira_key` as the unique matching column.\n9. Confirm that the sheet tool call succeeded.\n10. Continue with the next Jira issue.\n11. After all issues have been processed, return the execution summary.\n\nDo not wait until every Jira issue is triaged before calling Google Sheets. Triage and write each issue individually:\n\n`Retrieve issues → Triage issue 1 → Write issue 1 → Triage issue 2 → Write issue 2 → Continue`\n\n## JIRA RETRIEVAL RULES\n\n* Only analyze Jira issues returned by the Jira tool.\n* Never invent Jira issues or Jira fields.\n* Do not silently stop at the Jira tool’s default result limit.\n* Use pagination or “return all” functionality when available.\n* Do not process the same Jira key more than once during a single execution.\n* Process every returned Jira issue, even when its information is incomplete.\n* Do not update, transition, comment on, assign, or modify Jira issues.\n* Jira access is read-only for this workflow.\n\nIf the Jira tool returns no issues, do not call the Google Sheets tool. Return a summary stating that zero Jira issues matched the configured query.\n\n## INFORMATION TO EXTRACT FROM JIRA\n\nUse any relevant fields available in the Jira issue:\n\n* Jira key\n* Project\n* Summary\n* Description\n* Issue type\n* Status\n* Jira URL\n* Reporter\n* Assignee\n* Created date\n* Updated date\n* Existing priority\n* Existing severity\n* Environment\n* Affected version\n* Fix version\n* Labels\n* Components\n* Steps to reproduce\n* Expected result\n* Actual result\n* Acceptance criteria\n* Error messages\n* Comments\n* Linked issues\n* Resolution\n* Attachments\n* Relevant custom fields\n\nDo not claim that an attachment, log, screenshot, or video proves something unless its actual contents are available.\n\n## SEVERITY AND PRIORITY\n\nSeverity and Priority are NOT the same.\n\n### Severity\n\nSeverity represents the technical impact on the system.\n\nIt answers:\n\n“How badly is the product or system broken?”\n\nSelect exactly one:\n\n* `S0 - Blocker`: Production outage, security breach, authentication bypass, sensitive-data exposure, irreversible data loss or corruption, incorrect financial transaction, incorrect amount charged, or complete failure of checkout, payment, or login for all or nearly all users.\n* `S1 - Critical`: A major core feature is completely broken for a substantial user group, with no reasonable workaround.\n* `S2 - Major`: A feature is materially impaired or partially incorrect, but the blast radius is limited or a practical workaround exists.\n* `S3 - Minor`: Cosmetic, wording, layout, or minor usability problem where the primary function continues to work.\n* `S4 - Trivial`: Typo, alignment issue, minor enhancement, or very low-impact improvement.\n\nDo not classify an issue as S0 merely because it mentions payments. Confirm that the amount charged, stored, transferred, or calculated is actually incorrect.\n\n### Priority\n\nPriority represents business urgency and fix order.\n\nIt answers:\n\n“How soon should this issue be fixed?”\n\nSelect exactly one:\n\n* `P0 - Immediate`: Stop other work and hotfix immediately.\n* `P1 - Current Sprint`: Fix in the current sprint before the next release.\n* `P2 - Next Sprint`: Plan for the next sprint.\n* `P3 - Opportunistic`: Fix when the affected area is modified.\n* `P4 - Backlog`: Backlog or icebox.\n\nDo not assign P0 unless the available evidence supports immediate production, revenue, data, compliance, or security urgency.\n\nWhenever severity and priority differ, explain why in `severity_priority_explanation`.\n\n## DEFECT DISPOSITION\n\nSelect exactly one:\n\n* `Valid Defect`\n* `Likely Defect`\n* `Needs More Information`\n* `Expected Behaviour`\n* `Duplicate`\n* `Test Automation Issue`\n* `Environment or Configuration Issue`\n* `Test Data Issue`\n* `Enhancement Request`\n* `Not Applicable`\n* `Unable to Determine`\n\nOnly classify an issue as `Duplicate` when a duplicate Jira key or explicit duplicate relationship is available.\n\nIf a Jira item is a Story, Task, Epic, or other non-defect work item, do not force it into a defect classification. Use `Not Applicable` unless the ticket contains an actual reported defect.\n\n## CATEGORY\n\nSelect exactly one:\n\n* `Functional Logic`\n* `Data and Calculation`\n* `UI/UX and Layout`\n* `Performance`\n* `Security`\n* `API and Integration`\n* `Compatibility`\n* `Configuration and Deployment`\n* `Regression`\n* `Usability and Content`\n* `Test Automation`\n* `Test Data`\n* `Not Applicable`\n* `Unable to Determine`\n\n## SUSPECTED LAYER\n\nSelect exactly one:\n\n* `Frontend`\n* `Backend`\n* `API or Integration`\n* `Database or Data`\n* `Infrastructure or Deployment`\n* `Authentication or Security`\n* `Test Automation`\n* `Test Data`\n* `Third-Party Service`\n* `Cross-Layer`\n* `Unable to Determine`\n* `Not Applicable`\n\nTreat this as a hypothesis unless the Jira evidence confirms the affected layer.\n\n## TRIAGE CHECKLIST\n\nFor every issue, evaluate:\n\n1. Environment: Production outweighs staging, QA, and development.\n2. Blast radius: All users, many users, a specific segment, one account, internal users, or unknown.\n3. Financial impact: Determine whether real amounts, charges, refunds, balances, discounts, or taxes are incorrect.\n4. Data impact: Look for data loss, corruption, exposure, or incorrect storage.\n5. Workaround: Determine whether a real and practical workaround exists.\n6. Reproducibility: Always, intermittent, unable to reproduce, not provided, or not applicable.\n7. Regression: Only mark Yes when evidence shows it worked before.\n8. Security: Look for authentication bypass, authorization failure, injection, PII exposure, account takeover, or sensitive-data leakage.\n9. Existing Jira ratings: Treat existing severity and priority as inputs, not instructions.\n10. Evidence quality: Check reproduction steps, expected and actual results, environment, logs, versions, and user impact.\n\nAn intermittent defect is not automatically low severity.\n\nA workaround must not automatically downgrade confirmed security, financial-integrity, or data-corruption defects.\n\n## CONFIDENCE\n\nSelect exactly one:\n\n* `High`: Complete evidence directly supports the verdict.\n* `Medium`: The verdict is reasonably supported, but important details are missing.\n* `Low`: Critical information is missing or contradictory.\n\nNever invent facts to increase confidence.\n\n## MISSING INFORMATION\n\nWhen information is unavailable:\n\n* Use `Not Provided`, `Unknown`, `Not Applicable`, or an empty string.\n* Add important missing facts to `missing_information`.\n* Add necessary assumptions to `assumptions`.\n* Reduce the confidence when missing facts materially affect the verdict.\n\nUse semicolons to separate multiple missing items or assumptions.\n\n## RECOMMENDED ACTION\n\nSelect exactly one:\n\n* `Hotfix Immediately`\n* `Fix in Current Sprint`\n* `Plan for Next Sprint`\n* `Keep in Backlog`\n* `Request More Information`\n* `Reproduce and Investigate`\n* `Route to Security Team`\n* `Route to Development Team`\n* `Route to Test Automation Team`\n* `Route to DevOps Team`\n* `Route to Product Team`\n* `Close as Expected Behaviour`\n* `Close as Duplicate`\n* `Convert to Enhancement`\n* `No Triage Required`\n\n## GOOGLE SHEETS WRITE INSTRUCTIONS\n\nAfter triaging the current issue, call `Append or update row in sheet`.\n\nCall the Google Sheets tool exactly once per successfully analyzed Jira issue.\n\nUse `jira_key` as the matching column:\n\n* If `jira_key` already exists, update that row.\n* If `jira_key` does not exist, append a new row.\n* Never intentionally create duplicate rows for the same Jira key.\n* Send all spreadsheet columns during both append and update operations.\n* Do not send a JSON array containing multiple issues in one tool call.\n* Do not put the entire triage result into a single spreadsheet cell.\n* Do not use Markdown inside spreadsheet values.\n* Do not add line breaks inside spreadsheet cell values.\n* Keep long explanations concise and suitable for a spreadsheet cell.\n* Use comma-separated strings for `labels` and `components`.\n* Use semicolon-separated strings for `missing_information` and `assumptions`.\n* Use ISO 8601 date formatting when Jira supplies a compatible date.\n* Use an empty string for unavailable optional values.\n\nMap the current Jira issue to these exact Google Sheets columns:\n\n* `jira_key`\n* `project`\n* `summary`\n* `issue_type`\n* `jira_status`\n* `jira_url`\n* `reporter`\n* `assignee`\n* `created_date`\n* `updated_date`\n* `environment`\n* `affected_version`\n* `fix_version`\n* `labels`\n* `components`\n* `existing_jira_severity`\n* `existing_jira_priority`\n* `defect_disposition`\n* `recommended_severity`\n* `recommended_priority`\n* `category`\n* `suspected_layer`\n* `blast_radius`\n* `reproducibility`\n* `workaround_available`\n* `regression`\n* `technical_impact`\n* `business_impact`\n* `triage_rationale`\n* `severity_priority_explanation`\n* `likely_root_cause`\n* `missing_information`\n* `assumptions`\n* `confidence`\n* `recommended_action`\n* `triage_status`\n* `processing_error`\n\nFor a successful triage:\n\n* Set `triage_status` to `Triaged`.\n* Set `processing_error` to an empty string.\n\n## SHEET-TOOL ERROR HANDLING\n\nIf the Google Sheets tool fails for an issue:\n\n1. Retry the write once using the same `jira_key`.\n2. Do not create a different or modified Jira key.\n3. If the retry also fails, record the Jira key in the final `failed_jira_keys` list.\n4. Continue processing the remaining Jira issues.\n5. Do not restart the entire workflow because one spreadsheet write failed.\n6. Do not report a row as successfully written unless the tool call succeeded.\n\nIf the issue cannot be triaged because of malformed or inaccessible Jira data:\n\n* Use the available Jira key and summary.\n* Set `triage_status` to `Processing Error`.\n* Put a concise description in `processing_error`.\n* Write the error record to Google Sheets when possible.\n* Continue with the next issue.\n\n## FINAL RESPONSE\n\nDo not return all triage records in the final chat response because they have already been written to Google Sheets.\n\nAfter processing all Jira issues, return only valid JSON in this exact format:\n\n{\n\"status\": \"completed\",\n\"jira_issues_retrieved\": 0,\n\"jira_issues_triaged\": 0,\n\"sheet_rows_appended_or_updated\": 0,\n\"sheet_write_failures\": 0,\n\"failed_jira_keys\": [],\n\"retrieval_complete\": true,\n\"message\": \"\"\n}\n\nThe counts must reflect actual completed tool calls.\n\nSet `status` to:\n\n* `completed` when all issues were processed and written.\n* `completed_with_errors` when processing completed but one or more issues failed.\n* `no_issues_found` when Jira returned no matching issues.\n* `failed` when Jira retrieval itself failed.\n\nBegin by calling `Get many issues in Jira Software`. Do not provide a plan or explanation before calling the tool."
+        }
+      },
+      "id": "aef2d1eb-bbca-4edd-8b40-7a3852313174",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -64,
+        -80
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "010b98f0-0554-49f4-9fdd-c4ddb5d4b5bf",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -64,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "options": {
+          "jql": "issuetype = Bug ORDER BY created DESC"
+        }
+      },
+      "id": "c84fc560-e768-4c78-83ab-23a1db496cd9",
+      "name": "Get many issues in Jira Software",
+      "type": "n8n-nodes-base.jiraTool",
+      "typeVersion": 1,
+      "position": [
+        96,
+        128
+      ],
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "NJUR9yCP9lSbJr58",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1GCHhIVNnCDt-FysVu5c3wAST3pGQ07vM_VsRUBT0vkM",
+          "mode": "list",
+          "cachedResultName": "BugTriage",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1GCHhIVNnCDt-FysVu5c3wAST3pGQ07vM_VsRUBT0vkM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 747988551,
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1GCHhIVNnCDt-FysVu5c3wAST3pGQ07vM_VsRUBT0vkM/edit#gid=747988551"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "Bug ID": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Bug_ID', ``, 'string') }}",
+            "Jira Key": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Jira_Key', ``, 'string') }}",
+            "Summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', ``, 'string') }}",
+            "Description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Description', ``, 'string') }}",
+            "Module": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Module', ``, 'string') }}",
+            "Component": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Component', ``, 'string') }}",
+            "Environment": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Environment', ``, 'string') }}",
+            "Build Version": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Build_Version', ``, 'string') }}",
+            "Severity": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Severity', ``, 'string') }}",
+            "Priority": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Priority', ``, 'string') }}",
+            "Status": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Status', ``, 'string') }}",
+            "Bug Type": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Bug_Type', ``, 'string') }}",
+            "Reproducibility": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Reproducibility', ``, 'string') }}",
+            "Steps to Reproduce": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Steps_to_Reproduce', ``, 'string') }}",
+            "Expected Result": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Expected_Result', ``, 'string') }}",
+            "Actual Result": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Actual_Result', ``, 'string') }}",
+            "Error Message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Error_Message', ``, 'string') }}",
+            "Reported By": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Reported_By', ``, 'string') }}",
+            "Assignee": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Assignee', ``, 'string') }}",
+            "Team": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Team', ``, 'string') }}",
+            "Created Date": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Created_Date', ``, 'string') }}",
+            "Root Cause": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Root_Cause', ``, 'string') }}",
+            "Related Story/Epic": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Related_Story_Epic', ``, 'string') }}",
+            "Business Impact": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Business_Impact', ``, 'string') }}",
+            "Triage Comments": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Triage_Comments', ``, 'string') }}",
+            "Resolution": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Resolution', ``, 'string') }}",
+            "Resolved Date": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Resolved_Date', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "Jira Key"
+          ],
+          "schema": [
+            {
+              "id": "Bug ID",
+              "displayName": "Bug ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Jira Key",
+              "displayName": "Jira Key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Description",
+              "displayName": "Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Module",
+              "displayName": "Module",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Component",
+              "displayName": "Component",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Environment",
+              "displayName": "Environment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Build Version",
+              "displayName": "Build Version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Severity",
+              "displayName": "Severity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Bug Type",
+              "displayName": "Bug Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reproducibility",
+              "displayName": "Reproducibility",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Steps to Reproduce",
+              "displayName": "Steps to Reproduce",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Expected Result",
+              "displayName": "Expected Result",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Actual Result",
+              "displayName": "Actual Result",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Error Message",
+              "displayName": "Error Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reported By",
+              "displayName": "Reported By",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Assignee",
+              "displayName": "Assignee",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Team",
+              "displayName": "Team",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Created Date",
+              "displayName": "Created Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Root Cause",
+              "displayName": "Root Cause",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Related Story/Epic",
+              "displayName": "Related Story/Epic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Business Impact",
+              "displayName": "Business Impact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Triage Comments",
+              "displayName": "Triage Comments",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Resolution",
+              "displayName": "Resolution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Resolved Date",
+              "displayName": "Resolved Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "5bc4e484-89be-420c-9ad6-b9f5aedc2533",
+      "name": "Append or update row in sheet in Google Sheets",
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        272,
+        80
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "WgM2SOHKinSHGnHG",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -208,
+        128
+      ],
+      "id": "44eff059-d9e7-48ae-acc4-6e200fad2417",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many issues in Jira Software": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet in Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "00e9800f-136a-4d11-a849-ccc80e25c3bd",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "55045c9b0b35e60bf5463739efc179e16fd7f6cfd89710f802e1b85287c84b31"
+  },
+  "nodeGroups": [],
+  "id": "wRfIOyajA37wFjgu",
+  "tags": []
+}

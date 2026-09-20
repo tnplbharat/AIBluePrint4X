@@ -1,0 +1,292 @@
+{
+  "name": "07_LinkedIn_Post_Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.7-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -256,
+        224
+      ],
+      "id": "56996a77-7b76-4ce3-a589-9896b85b9481",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Generate one fresh, specific LinkedIn post topic for a software testing and AI-in-QA audience. Avoid generic themes. Return the topic, a one-line angle, and the target reader. You are a **content strategist for a software testing community**. Output only what the schema asks for."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -112,
+        16
+      ],
+      "id": "111f0d7e-6311-4956-9fae-c1ee3ee38e88",
+      "name": "Content Topic Generator"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"topic\": { \"type\": \"string\" },\n    \"angle\": { \"type\": \"string\" },\n    \"audience\": { \"type\": \"string\" }\n  },\n  \"required\": [\"topic\", \"angle\", \"audience\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        64,
+        224
+      ],
+      "id": "18b8b418-a092-4a0c-9226-f6fdfede5a07",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        -352,
+        16
+      ],
+      "id": "ee08faad-2d77-48ce-a447-655dc1fe7992",
+      "name": "When chat message received",
+      "webhookId": "1e3b584d-fc7f-498c-8e1b-78bd695e92fe"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        304,
+        208
+      ],
+      "id": "c6fd672e-c398-4163-baf2-16fa5e680533",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"post_title\": { \"type\": \"string\" },\n    \"post_body\": { \"type\": \"string\" },\n    \"image_prompt\": { \"type\": \"string\" },\n    \"hash_tags\":{\"type\":\"string\"}\n  },\n  \"required\": [\"post_title\", \"post_body\", \"image_prompt\",\"hash_tags\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        496,
+        224
+      ],
+      "id": "5cae767a-0e3c-4d4e-9157-ce389e2988af",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=write a LinkedIn post.\n\nTopic:{{ $json.output.properties.topic.type}}\nAngle:{{ $json.output.properties.angle.type }}\nAudience:{{ $json.output.properties.audience.type}}\n\nRules: no contractions, no emojis, plain declarative sentences, no patagraphs, one clear takeaway, 150 to 250 words only. Aslo produce a post title and one-sentence image prompt describing a clean technical illustration for this project.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You write a LinkedIn post for a software testing audience.  Return only the fields required by the schema."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        320,
+        16
+      ],
+      "id": "c4a669b1-d21c-41f8-bbe9-18c4f49955cb",
+      "name": "Content_LinkedIn_Post"
+    },
+    {
+      "parameters": {
+        "url": "=https://image.pollinations.ai/prompt/{{ encodeURIComponent($json.output.image_prompt) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        656,
+        32
+      ],
+      "id": "12659b36-1f04-45a6-a9c2-d258c2fe3ade",
+      "name": "Generate LinkedIn Image - Pollinations"
+    },
+    {
+      "parameters": {
+        "person": "U1GalzKfPX",
+        "text": "={{ $json.output.post_body }}\n\n{{ $json.output.hash_tags }}\n\n",
+        "shareMediaCategory": "IMAGE",
+        "additionalFields": {
+          "title": "={{ $json.output.post_title }}",
+          "visibility": "PUBLIC"
+        }
+      },
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        816,
+        32
+      ],
+      "id": "3a5cecef-11be-4afb-bea7-fd1bcb58013b",
+      "name": "Create a post",
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "JtEX6ytvFU0tHI4O",
+          "name": "LinkedIn account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Content Topic Generator": [
+      {
+        "json": {
+          "output": {
+            "topic": "The Hidden Trap of AI 'Self-Healing' Tests: When Fixing Locators Masks Real UI Regressions",
+            "angle": "Exploring how autonomous locator-healing heuristics often silently bypass intentional breaking UI/contract changes instead of flagging them as genuine regressions.",
+            "audience": "SDETs, QA Automation Engineers, and Engineering Leads evaluating or using AI-driven test automation platforms."
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Content Topic Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Content Topic Generator",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Content Topic Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Content Topic Generator": {
+      "main": [
+        [
+          {
+            "node": "Content_LinkedIn_Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Content_LinkedIn_Post",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Content_LinkedIn_Post",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Content_LinkedIn_Post": {
+      "main": [
+        [
+          {
+            "node": "Generate LinkedIn Image - Pollinations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate LinkedIn Image - Pollinations": {
+      "main": [
+        [
+          {
+            "node": "Create a post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "b0ccaef7-ba07-438f-b7c0-c4b3e9beadab",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "55045c9b0b35e60bf5463739efc179e16fd7f6cfd89710f802e1b85287c84b31"
+  },
+  "nodeGroups": [],
+  "id": "477FDcOOLjldFWVQ",
+  "tags": []
+}

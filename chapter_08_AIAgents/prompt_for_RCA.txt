@@ -1,0 +1,601 @@
+Build an n8n workflow from scratch for an automated **Jira Production Bug RCA Agent**.
+
+## 1. OBJECTIVE
+
+Create an automation that continuously monitors Jira for newly created or updated **production bugs**.
+
+Whenever a production bug is detected:
+
+1. Automatically fetch the complete Jira issue.
+2. Extract the Jira key, summary, description, priority, environment, labels, comments, affected/fix versions, components, reporter, assignee, status, and any other useful fields.
+3. Analyze the bug using an AI Agent.
+4. Generate a structured Root Cause Analysis (RCA).
+5. Store the RCA in a Google Sheets/Excel file.
+6. If the Jira bug already exists in the sheet, update its row instead of creating a duplicate.
+7. If the Jira bug does not exist in the sheet, append a new row.
+8. Preserve the exact column structure defined below.
+
+The workflow must be robust enough to process multiple production bugs automatically.
+
+---
+
+# 2. JIRA TRIGGER
+
+Create a Jira trigger that detects production bugs automatically.
+
+Use JQL equivalent to:
+
+project = VWO
+AND issuetype = Bug
+AND environment = Production
+ORDER BY created DESC
+
+If the Jira instance does not expose Environment as a directly searchable JQL field, support alternative production identification through labels or text, for example:
+
+project = VWO
+AND issuetype = Bug
+AND labels = production
+ORDER BY created DESC
+
+The workflow should be configurable so that the project key, production label, and production environment can easily be changed.
+
+Do NOT hard-code a specific Jira issue key such as VWO-49.
+
+The workflow must process all matching production bugs.
+
+---
+
+# 3. FETCH COMPLETE JIRA ISSUE
+
+After the Jira trigger identifies a bug, fetch the complete Jira issue using the Jira node/API.
+
+Retrieve at minimum:
+
+* Jira key
+* Jira ID
+* Summary
+* Description
+* Issue type
+* Project
+* Status
+* Priority
+* Reporter
+* Assignee
+* Created date
+* Updated date
+* Components
+* Affects versions
+* Fix versions
+* Labels
+* Environment
+* Comments
+* Attachments if available
+* Epic link if available
+* Sprint if available
+* Resolution
+* Any custom fields containing severity
+* Any custom fields containing production information
+
+Also retrieve all Jira comments because comments can contain important information for RCA.
+
+Do not expose passwords, tokens, credentials, session IDs, API keys, or other secrets to the AI Agent.
+
+---
+
+# 4. PRODUCTION BUG VALIDATION
+
+Before sending the issue to the RCA Agent, verify that it is actually a production bug.
+
+Production can be identified from:
+
+1. Jira Environment field containing "production", "prod", or equivalent.
+2. Jira label containing "production" or "prod".
+3. Relevant project/custom field indicating production.
+4. Description/comments explicitly indicating a production issue.
+
+If production cannot be established with sufficient confidence, do not generate a production RCA.
+
+Set:
+
+triage_status = "Requires Production Verification"
+
+and record the reason.
+
+---
+
+# 5. AI RCA AGENT
+
+Create an AI Agent that analyzes the complete Jira bug.
+
+The AI Agent's job is to produce an RCA, not to invent facts.
+
+The Agent must clearly distinguish:
+
+* Confirmed facts
+* Evidence from Jira
+* Reasonable inference
+* Assumptions
+* Missing information
+
+Never invent logs, stack traces, deployment information, database failures, affected-user counts, timestamps, or root causes that are not present in Jira.
+
+If the Jira information is insufficient to determine the exact root cause, state that clearly.
+
+---
+
+# 6. RCA ANALYSIS
+
+The AI Agent must analyze:
+
+### Bug Summary
+
+Summarize the production issue in a concise manner.
+
+### Business/User Impact
+
+Determine:
+
+* Who is affected
+* What functionality is affected
+* Whether the issue blocks a critical workflow
+* Whether the issue appears to affect all users or a subset
+* Whether production functionality is unavailable
+
+Only state impact that is supported by Jira evidence.
+
+### Environment
+
+Extract the affected environment.
+
+Examples:
+
+* Production
+* Staging
+* QA
+* Unknown
+
+### Severity
+
+Determine an RCA severity based on the available evidence.
+
+Allowed values:
+
+* Critical
+* High
+* Medium
+* Low
+* Unknown
+
+Do not assume severity merely from Jira Priority.
+
+Explain the reasoning.
+
+### Priority
+
+Capture the existing Jira priority separately.
+
+Do not overwrite the Jira priority with AI-generated severity.
+
+### Likely Root Cause
+
+Identify the most likely technical root cause based on the available evidence.
+
+If the exact root cause cannot be established, provide the most likely hypothesis and explicitly mark it as a hypothesis.
+
+### Contributing Factors
+
+Identify possible contributing factors when evidence exists.
+
+### Missing Information
+
+Identify information needed to confirm the root cause.
+
+Examples:
+
+* Steps to reproduce
+* Application logs
+* Browser/OS
+* API request/response
+* Stack trace
+* Deployment version
+* Number of affected users
+* Timestamp
+* Screenshots
+* Database logs
+* Monitoring information
+
+### Recommended Action
+
+Recommend a practical next action based on the evidence.
+
+Examples:
+
+* Investigate immediately
+* Roll back deployment
+* Hotfix
+* Collect logs
+* Reproduce in production-like environment
+* Monitor service
+* Escalate to relevant team
+
+Do not claim that an action has already been performed unless Jira confirms it.
+
+### Confidence
+
+Use:
+
+* High
+* Medium
+* Low
+
+Confidence must represent how strongly the available Jira evidence supports the RCA.
+
+---
+
+# 7. REQUIRED RCA OUTPUT
+
+The AI Agent MUST return structured JSON only.
+
+Use exactly this structure:
+
+{
+"jira_key": "",
+"jira_id": "",
+"summary": "",
+"description": "",
+"project": "",
+"issue_type": "",
+"status": "",
+"environment": "",
+"module": "",
+"created_date": "",
+"updated_date": "",
+"reporter": "",
+"assignee": "",
+"components": "",
+"affects_versions": "",
+"fix_versions": "",
+"labels": "",
+"existing_jira_severity": "",
+"existing_jira_priority": "",
+"severity": "",
+"severity_priority_explanation": "",
+"business_impact": "",
+"likely_root_cause": "",
+"contributing_factors": "",
+"missing_information": "",
+"assumptions": "",
+"recommended_action": "",
+"confidence": "",
+"triage_status": "",
+"processing_error": ""
+}
+
+---
+
+# 8. MODULE EXTRACTION
+
+The "module" field should identify the application/module affected by the bug.
+
+Use information from:
+
+* Jira Components
+* Labels
+* Summary
+* Description
+* Epic
+* Other Jira fields
+
+If the module cannot be determined, return:
+
+"Unknown"
+
+Do not invent a module.
+
+---
+
+# 9. RCA STATUS
+
+Use these values for triage_status:
+
+* Triaged
+* Requires Production Verification
+* Insufficient Information
+* RCA Generated
+* Processing Error
+
+Use "Triaged" only when enough information exists to perform meaningful triage.
+
+Use "Insufficient Information" when the Jira ticket lacks important evidence.
+
+---
+
+# 10. GOOGLE SHEETS / EXCEL OUTPUT
+
+Create a Google Sheets node after the AI Agent.
+
+The spreadsheet must contain exactly these headers:
+
+jira_key
+jira_id
+summary
+description
+project
+issue_type
+status
+environment
+module
+created_date
+updated_date
+reporter
+assignee
+components
+affects_versions
+fix_versions
+labels
+existing_jira_severity
+existing_jira_priority
+severity
+severity_priority_explanation
+business_impact
+likely_root_cause
+contributing_factors
+missing_information
+assumptions
+recommended_action
+confidence
+triage_status
+processing_error
+
+Each Jira production bug should occupy one row.
+
+---
+
+# 11. DUPLICATE PREVENTION
+
+This is extremely important.
+
+Configure the Google Sheets node to use:
+
+Matching Column:
+
+jira_key
+
+Operation:
+
+Append or Update Row
+
+The Google Sheet MUST have:
+
+jira_key
+
+as a header.
+
+When the workflow receives VWO-100:
+
+* Search the sheet for jira_key = VWO-100.
+* If it exists, update that row.
+* If it does not exist, append a new row.
+
+Never create duplicate RCA rows for the same Jira key.
+
+Do NOT depend on the AI Agent to generate Google Sheets configuration such as matchingColumns.
+
+Configure the matching column directly in the Google Sheets node.
+
+---
+
+# 12. UPDATE BEHAVIOR
+
+The workflow should also handle Jira bug updates.
+
+If an existing production bug is updated with:
+
+* New comments
+* New description
+* New priority
+* New severity
+* New fix version
+* New environment information
+* New investigation details
+* New resolution information
+
+then the workflow should regenerate/update the RCA row.
+
+The Jira key remains the unique identifier.
+
+---
+
+# 13. ERROR HANDLING
+
+Add error handling.
+
+If Jira cannot be read:
+
+processing_error = "Unable to fetch Jira issue"
+
+If AI processing fails:
+
+processing_error = "AI RCA processing failed"
+
+If Google Sheets fails:
+
+processing_error = "Unable to update RCA spreadsheet"
+
+Do not silently lose failed issues.
+
+Where practical, route failures to an error branch and preserve the Jira key and error message.
+
+---
+
+# 14. SECURITY
+
+Never send the following information to the AI Agent unless absolutely required:
+
+* Jira API tokens
+* Passwords
+* OAuth secrets
+* Access tokens
+* Session tokens
+* API keys
+* Credentials
+* Personally sensitive information
+
+Mask secrets that may accidentally appear in Jira descriptions or comments.
+
+---
+
+# 15. WORKFLOW DESIGN
+
+Create the workflow using these nodes/concepts:
+
+1. Jira Trigger
+2. Production Bug Validation
+3. Jira Get Issue
+4. Jira Get Comments
+5. Data Preparation / Set node
+6. AI Agent
+7. Structured Output Parser
+8. Data Validation
+9. Google Sheets - Append or Update Row
+10. Error Handling
+
+Recommended logical flow:
+
+Jira Trigger
+↓
+Production Bug Validation
+↓
+Get Complete Jira Issue
+↓
+Get Jira Comments
+↓
+Prepare RCA Input
+↓
+AI RCA Agent
+↓
+Structured Output Parser
+↓
+Validate RCA JSON
+↓
+Google Sheets
+↓
+Append or Update Row
+
+---
+
+# 16. AI AGENT SYSTEM PROMPT
+
+Use the following system prompt inside the AI Agent:
+
+"You are a Production Bug Root Cause Analysis Agent.
+
+Your task is to analyze Jira production bug information and produce a structured RCA.
+
+Use only information supplied by Jira and the workflow.
+
+Do not invent facts.
+
+Separate confirmed evidence from assumptions and hypotheses.
+
+When information is missing, explicitly identify it in missing_information.
+
+Determine severity independently from Jira priority.
+
+Preserve the original Jira priority in existing_jira_priority.
+
+If the exact root cause cannot be confirmed, provide the most likely hypothesis and clearly indicate that it is not confirmed.
+
+Analyze the issue's business impact, technical impact, likely root cause, contributing factors, missing information, recommended action, and confidence.
+
+Use High, Medium, or Low confidence.
+
+Use Critical, High, Medium, Low, or Unknown severity.
+
+Return ONLY valid JSON matching the required schema.
+
+Do not return markdown.
+
+Do not return explanations outside the JSON object."
+
+---
+
+# 17. SAMPLE INPUT
+
+The AI Agent should be capable of processing an issue containing information such as:
+
+Jira Key:
+VWO-49
+
+Summary:
+[VWO] Add Passkey and SSO Login Options to VWO Login Page
+
+Type:
+Story
+
+Priority:
+Medium
+
+Environment:
+Production
+
+Description:
+As a user, I want to log in using either Passkey or Single Sign-On (SSO)...
+
+Acceptance Criteria:
+
+1. SSO button visible
+2. Passkey button visible
+3. Successful SSO authentication
+4. Successful Passkey authentication
+5. Error handling
+6. Browser compatibility
+7. Security requirements
+
+Comments:
+not able to reproduce
+
+The agent should analyze the supplied information but must not claim that the issue is definitely a production authentication failure unless the Jira evidence supports that conclusion.
+
+---
+
+# 18. IMPORTANT JIRA JQL
+
+Do not use a specific Jira issue key.
+
+The workflow must operate on all matching production bugs.
+
+Use a configurable JQL such as:
+
+project = VWO
+AND issuetype = Bug
+AND labels = production
+ORDER BY created DESC
+
+If production is represented using another Jira field, adapt the JQL accordingly.
+
+---
+
+# 19. FINAL REQUIREMENT
+
+Build the n8n workflow so that it can run unattended.
+
+The final workflow should:
+
+* Automatically detect production bugs.
+* Fetch complete Jira information.
+* Include Jira comments.
+* Analyze the bug with AI.
+* Generate structured RCA.
+* Validate the output.
+* Write the RCA to Google Sheets.
+* Use jira_key as the unique matching column.
+* Update existing rows instead of duplicating them.
+* Append new bugs automatically.
+* Preserve the original Jira information.
+* Clearly identify assumptions and missing evidence.
+* Handle errors safely.
+
+Do not hard-code VWO-49 or any other specific Jira issue.
+
+The workflow must be reusable for every production bug.

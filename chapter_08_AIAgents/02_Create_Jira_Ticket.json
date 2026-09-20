@@ -1,0 +1,164 @@
+{
+  "name": "02_Create_Jira_Ticket",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        -256,
+        -48
+      ],
+      "id": "b3c2d94d-43b4-4eb7-ac7a-fa335592fade",
+      "name": "When chat message received",
+      "webhookId": "faa776ac-6c3f-4eba-88cd-adfe118a2877"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a Jira ticket creation assistant.\n\nJira configuration:\n- Default Project: SCRUM\n- Default Issue Type: Bug\n\nWhen the user asks to create a Jira ticket:\n1. Use project SCRUM automatically.\n2. Use Bug as the issue type automatically.\n3. Do NOT ask the user for Project or Issue Type.\n4. Generate a concise Summary of maximum 200 characters.\n5. Put detailed information in Description.\n6. Create the Jira issue using the Jira tool.\n7. After successful creation, return the Jira issue key and link.\n8. If Jira returns an error, read the actual error and fix/retry when possible.\n9. Do not invent an error reason."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -32,
+        -48
+      ],
+      "id": "60897adc-1fd7-45cc-8888-3db567a1d29c",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -176,
+        160
+      ],
+      "id": "c5f899ea-7711-4049-ad43-a074134e6e3b",
+      "name": "Brain",
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -32,
+        160
+      ],
+      "id": "b55b977d-7c73-4ad0-bdb6-d3daaaf746dc",
+      "name": "Memory"
+    },
+    {
+      "parameters": {
+        "project": {
+          "__rl": true,
+          "value": "10000",
+          "mode": "list",
+          "cachedResultName": "QA Testing"
+        },
+        "issueType": {
+          "__rl": true,
+          "value": "10006",
+          "mode": "list",
+          "cachedResultName": "Bug"
+        },
+        "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', ``, 'string') }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.jiraTool",
+      "typeVersion": 1,
+      "position": [
+        128,
+        160
+      ],
+      "id": "040db32a-6656-4538-aa79-e62ca4cb9f3f",
+      "name": "Create an issue in Jira Software",
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "NJUR9yCP9lSbJr58",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brain": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an issue in Jira Software": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "212f7e2a-3cc2-406e-9a6b-741794aa2e63",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "55045c9b0b35e60bf5463739efc179e16fd7f6cfd89710f802e1b85287c84b31"
+  },
+  "nodeGroups": [],
+  "id": "cDB3PNfzCv0OZRL6",
+  "tags": []
+}

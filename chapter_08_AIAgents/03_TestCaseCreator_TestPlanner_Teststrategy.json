@@ -1,0 +1,258 @@
+{
+  "name": "03_TestCaseCreator_TestPlanner_Teststrategy",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "options": {
+          "allowFileUploads": true,
+          "responseMode": "responseNodes"
+        }
+      },
+      "id": "9effb946-effc-4afa-b8af-039561bd80fc",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        -352,
+        -144
+      ],
+      "webhookId": "19015f5b-4c47-47ac-89ce-58a0b7349f99"
+    },
+    {
+      "parameters": {
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a Senior QA Architect.\n\nYour job is to generate QA artifacts based on Jira requirements.\n\nThe user may request:\n\n* Test Cases\n* Test Plan\n* Test Strategy\n\nExamples:\n\n* Create test cases for SCRUM-12\n* Create a test plan for SCRUM-12\n* Create a test strategy for SCRUM-12\n\nFollow these steps:\n\n1. Understand the user's request.\n2. Identify the requested artifact type:\n\n   * Test Cases\n   * Test Plan\n   * Test Strategy\n3. Extract the Jira ticket ID from the user's request.\n4. If a Jira ticket ID is provided, ALWAYS use the Jira Read tool.\n5. Read the Jira:\n\n   * Summary\n   * Description\n   * Acceptance Criteria\n6. Analyze the Jira requirement.\n7. Generate the requested QA artifact using the Jira information.\n8. Do NOT invent requirements or present assumptions as requirements.\n\nDo not invent:\n\n* URLs\n* usernames\n* passwords\n* error messages\n* API endpoints\n* business rules\n* acceptance criteria\n* performance targets\n* security requirements\n* SSO requirements\n* MFA/2FA requirements\n* accessibility requirements\n* browser/device requirements\n* session timeout values\n* password complexity rules\n\nIf information is not available in Jira, write:\n\"Not specified in Jira.\"\n\nIf a general QA recommendation is useful but is not present in Jira, clearly label it as:\n\"Recommended Additional Test\"\n\nDo not fabricate test data. Use placeholders such as: <valid user> <registered email> <valid password>\n\nGenerate the complete requested artifact.\n\nReturn exactly these three fields:\n\nartifactType\nticketSummary\nticketDescription\n\nThe generated ticketSummary will be used as the Summary of a new Jira ticket.\n\nThe generated ticketDescription will be used as the Description of a new Jira ticket.\n\nThe workflow will create the Jira ticket after you generate the artifact. Therefore, DO NOT create a Jira ticket yourself and DO NOT use a Jira Create tool.\n\nYour output must contain the actual generated QA content, not the JSON schema.\n\nExpected structure:\n\n{\n\"artifactType\": \"Test Cases\",\n\"ticketSummary\": \"Test Cases for SCRUM-12\",\n\"ticketDescription\": \"TC-001: ...\\nTC-002: ...\"\n}\n\nImportant:\nDo not generate or guess the URL of the newly created Jira ticket.\n\nThe workflow will create the Jira ticket and provide the actual Jira ticket key and link to the user after creation.\n"
+        }
+      },
+      "id": "163e88b5-afd8-4cb9-b7e4-d9ac2deb8fdd",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -112,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {
+          "maxTokens": 8000,
+          "reasoningEffort": "low"
+        }
+      },
+      "id": "773bc34d-ff82-4ed7-9054-7cc1261ae735",
+      "name": "Brain",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -272,
+        32
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "9fb194f0-794c-461b-80d0-f7f799932e07",
+      "name": "Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -160,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use this tool whenever a Jira ticket id is provided.\n\nRead:\n\nSummary\nDescription\nAcceptance criteria",
+        "operation": "get",
+        "issueKey": "={{ $fromAI(\"jiraKey\") }}",
+        "additionalFields": {}
+      },
+      "id": "00598539-5155-4fbe-9fdf-1efa60feca39",
+      "name": "Get_Jira_Requirement",
+      "type": "n8n-nodes-base.jiraTool",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        32
+      ],
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "NJUR9yCP9lSbJr58",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"artifactType\": {\n      \"type\": \"string\"\n    },\n    \"ticketSummary\": {\n      \"type\": \"string\"\n    },\n    \"ticketDescription\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"artifactType\",\n    \"ticketSummary\",\n    \"ticketDescription\"\n  ]\n}"
+      },
+      "id": "2a712e4f-6179-4efd-bf84-cddf0b21f05b",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        32,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "message": "=QA artifact created successfully!\n\nJira Ticket:\n{{ $('Create an issue').item.json.key }}\n\nOpen Jira Ticket:\nhttps://tnplbharat.atlassian.net/browse/{{ $('Create an issue').item.json.key }}",
+        "options": {}
+      },
+      "id": "093cb55c-70d3-4b23-afad-7279369eb590",
+      "name": "Chat",
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "position": [
+        480,
+        -144
+      ],
+      "webhookId": "315e6649-c6cb-4530-9087-1ab9e401cfc7"
+    },
+    {
+      "parameters": {
+        "project": {
+          "__rl": true,
+          "value": "10000",
+          "mode": "list",
+          "cachedResultName": "QA Testing"
+        },
+        "issueType": {
+          "__rl": true,
+          "value": "10003",
+          "mode": "list",
+          "cachedResultName": "Task"
+        },
+        "summary": "={{ $json.output.ticketSummary }}",
+        "additionalFields": {
+          "description": "={{ $json.output.ticketDescription }}"
+        }
+      },
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [
+        272,
+        -144
+      ],
+      "id": "9af7180b-b776-4c24-9476-b215c4c54080",
+      "name": "Create an issue",
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "NJUR9yCP9lSbJr58",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Create an issue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brain": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get_Jira_Requirement": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an issue": {
+      "main": [
+        [
+          {
+            "node": "Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "7b3f17e2-f049-4ed9-ac70-bee846d3d4d0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "55045c9b0b35e60bf5463739efc179e16fd7f6cfd89710f802e1b85287c84b31"
+  },
+  "nodeGroups": [],
+  "id": "d4kMpsZJ9FnhC7vy",
+  "tags": []
+}
